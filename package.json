@@ -9,6 +9,12 @@
   "files": [
     "dist"
   ],
+  "pkg": {
+    "assets": [
+      "node_modules/yoga-layout/dist/binaries/*.js"
+    ],
+    "sea": true
+  },
   "scripts": {
     "build": "tsc",
     "package": "npm run build && pkg . --target host --output release/docker-manager",
