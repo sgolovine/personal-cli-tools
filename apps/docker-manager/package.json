@@ -1,0 +1,37 @@
+{
+  "name": "docker-manager",
+  "version": "1.0.0",
+  "description": "An interactive terminal UI for managing Docker resources",
+  "type": "module",
+  "bin": {
+    "docker-manager": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "pkg": {
+    "assets": [
+      "node_modules/yoga-layout/dist/binaries/*.js"
+    ],
+    "sea": true
+  },
+  "scripts": {
+    "build": "tsc",
+    "package": "pnpm build && pkg . --target host --output release/docker-manager",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@ink-tools/ink-mouse": "catalog:",
+    "ink": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@yao-pkg/pkg": "catalog:",
+    "typescript": "catalog:"
+  }
+}
