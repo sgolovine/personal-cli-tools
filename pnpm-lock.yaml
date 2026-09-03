@@ -21,6 +21,9 @@ catalogs:
     '@yao-pkg/pkg':
       specifier: ^6.22.0
       version: 6.22.0
+    esbuild:
+      specifier: ^0.28.2
+      version: 0.28.2
     ink:
       specifier: ^7.1.1
       version: 7.1.1
@@ -60,6 +63,34 @@ importers:
       '@yao-pkg/pkg':
         specifier: 'catalog:'
         version: 6.22.0
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
+  apps/worktree-manager:
+    dependencies:
+      '@ink-tools/ink-mouse':
+        specifier: 'catalog:'
+        version: 2.1.0(ink@7.1.1(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
+      ink:
+        specifier: 'catalog:'
+        version: 7.1.1(@types/react@19.2.18)(react@19.2.8)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      '@yao-pkg/pkg':
+        specifier: 'catalog:'
+        version: 6.22.0
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.28.2
       typescript:
         specifier: 'catalog:'
         version: 7.0.2

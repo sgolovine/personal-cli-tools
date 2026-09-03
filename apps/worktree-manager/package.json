@@ -1,0 +1,38 @@
+{
+  "name": "worktree-manager",
+  "version": "1.0.0",
+  "description": "An interactive terminal UI for navigating and deleting Git worktrees",
+  "type": "module",
+  "bin": {
+    "worktree-manager": "dist/cli-bundle.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "pkg": {
+    "assets": [
+      "node_modules/yoga-layout/dist/binaries/*.js"
+    ],
+    "sea": true
+  },
+  "scripts": {
+    "build": "tsc && esbuild dist/cli.js --bundle --platform=node --format=esm --target=node22 --alias:react-devtools-core=./dist/react-devtools-core.js --banner:js='import { createRequire } from \"node:module\"; const require = createRequire(import.meta.url);' --outfile=dist/cli-bundle.js",
+    "package": "pnpm build && pkg . --target host --output release/worktree-manager",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@ink-tools/ink-mouse": "catalog:",
+    "ink": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@yao-pkg/pkg": "catalog:",
+    "esbuild": "catalog:",
+    "typescript": "catalog:"
+  }
+}
