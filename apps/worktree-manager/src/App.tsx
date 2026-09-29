@@ -1,16 +1,9 @@
-import {
-  type InkMouseEvent,
-  useOnClick,
-  useOnWheel,
-} from "@ink-tools/ink-mouse";
+import { type InkMouseEvent, useOnClick } from "@ink-tools/ink-mouse";
 import { Box, type DOMElement, Text, useApp, useInput, useStdout } from "ink";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DeleteOption } from "./components/DeleteOption.js";
+import { WorktreeTable } from "./components/WorktreeTable.js";
 import { deleteWorktree, loadWorktrees, type Worktree } from "./worktrees.js";
-
-type TableColumn = {
-  label: string;
-  width: `${number}%`;
-};
 
 type Notice = {
   kind: "info" | "success" | "error";
@@ -22,143 +15,8 @@ type ContextMenuState = {
   y: number;
 };
 
-const COLUMNS: [TableColumn, TableColumn, TableColumn] = [
-  { label: "WORKTREE", width: "68%" },
-  { label: "HEAD", width: "12%" },
-  { label: "BRANCH", width: "20%" },
-];
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function Cell({ value, column }: { value: string; column: TableColumn }) {
-  return (
-    <Box width={column.width} paddingRight={1} flexShrink={0}>
-      <Text wrap="truncate-end">{value}</Text>
-    </Box>
-  );
-}
-
-function WorktreeRow({
-  worktree,
-  selected,
-  onClick,
-  onContextMenu,
-}: {
-  worktree: Worktree;
-  selected: boolean;
-  onClick: () => void;
-  onContextMenu: (event: InkMouseEvent) => void;
-}) {
-  const ref = useRef<DOMElement>(null);
-  useOnClick(ref, (event) => {
-    if (event.button === "left") {
-      onClick();
-    } else if (event.button === "right") {
-      onContextMenu(event);
-    }
-  });
-
-  return (
-    <Box ref={ref} backgroundColor={selected ? "blue" : undefined}>
-      <Cell value={worktree.path} column={COLUMNS[0]} />
-      <Cell value={worktree.head} column={COLUMNS[1]} />
-      <Cell value={worktree.branch} column={COLUMNS[2]} />
-    </Box>
-  );
-}
-
-function WorktreeTable({
-  worktrees,
-  selected,
-  viewportRows,
-  onClick,
-  onContextMenu,
-  onMove,
-}: {
-  worktrees: Worktree[];
-  selected: number;
-  viewportRows: number;
-  onClick: (index: number) => void;
-  onContextMenu: (event: InkMouseEvent, index: number) => void;
-  onMove: (delta: number) => void;
-}) {
-  const ref = useRef<DOMElement>(null);
-  useOnWheel(ref, (event) => {
-    if (event.button === "wheel-up") {
-      onMove(-1);
-    } else if (event.button === "wheel-down") {
-      onMove(1);
-    }
-  });
-
-  const start = Math.min(
-    Math.max(0, selected - Math.floor(viewportRows / 2)),
-    Math.max(0, worktrees.length - viewportRows),
-  );
-  const visibleWorktrees = worktrees.slice(start, start + viewportRows);
-
-  return (
-    <Box
-      ref={ref}
-      flexDirection="column"
-      borderStyle="round"
-      borderColor="gray"
-      paddingX={1}
-      height={viewportRows + 3}
-      overflow="hidden"
-      aria-role="table"
-    >
-      <Box>
-        {COLUMNS.map((column) => (
-          <Box
-            key={column.label}
-            width={column.width}
-            paddingRight={1}
-            flexShrink={0}
-          >
-            <Text bold color="gray" wrap="truncate-end">
-              {column.label}
-            </Text>
-          </Box>
-        ))}
-      </Box>
-      {visibleWorktrees.map((worktree, visibleIndex) => {
-        const index = start + visibleIndex;
-        return (
-          <WorktreeRow
-            key={worktree.path}
-            worktree={worktree}
-            selected={index === selected}
-            onClick={() => onClick(index)}
-            onContextMenu={(event) => onContextMenu(event, index)}
-          />
-        );
-      })}
-    </Box>
-  );
-}
-
-function DeleteOption({
-  disabled,
-  onChoose,
-}: {
-  disabled: boolean;
-  onChoose: () => void;
-}) {
-  const ref = useRef<DOMElement>(null);
-  useOnClick(ref, (event) => {
-    if (event.button === "left" && !disabled) {
-      onChoose();
-    }
-  });
-
-  return (
-    <Box ref={ref} backgroundColor="blue">
-      <Text dimColor={disabled}>› Delete</Text>
-    </Box>
-  );
 }
 
 export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
