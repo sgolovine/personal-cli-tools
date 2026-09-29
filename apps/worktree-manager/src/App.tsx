@@ -246,7 +246,7 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
       }
       return;
     }
-    if (key.tab) {
+    if (key.tab || key.leftArrow || key.rightArrow) {
       setTab((current) => current === "worktrees" ? "queue" : "worktrees");
       return;
     }
@@ -353,8 +353,8 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
         <Text color={noticeColor}>{notice.text}</Text>
         <Text dimColor>
           {tab === "worktrees"
-            ? "tab switch · ↑/↓ select · enter open · d delete"
-            : "tab switch · ↑/↓ scroll"}
+            ? "←/→ tabs · ↑/↓ select · enter open · d delete"
+            : "←/→ tabs · ↑/↓ scroll"}
         </Text>
       </Box>
 
