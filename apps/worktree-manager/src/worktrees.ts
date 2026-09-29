@@ -7,12 +7,12 @@ export type Worktree = {
   removable: boolean;
 };
 
-function git(args: string[], cwd = process.cwd()): Promise<string> {
+function git(args: string[], cwd = process.cwd(), signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       "git",
       args,
-      { cwd, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
+      { cwd, encoding: "utf8", maxBuffer: 10 * 1024 * 1024, signal },
       (error, stdout, stderr) => {
         if (!error) {
           resolve(stdout);
@@ -82,6 +82,6 @@ export async function loadWorktrees(): Promise<Worktree[]> {
   return parseWorktrees(await git(["worktree", "list", "--porcelain", "-z"]));
 }
 
-export async function deleteWorktree(path: string): Promise<void> {
-  await git(["worktree", "remove", path]);
+export async function deleteWorktree(path: string, signal?: AbortSignal): Promise<void> {
+  await git(["worktree", "remove", path], process.cwd(), signal);
 }

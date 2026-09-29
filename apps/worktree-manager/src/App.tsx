@@ -15,6 +15,11 @@ type ContextMenuState = {
   y: number;
 };
 
+type QueuedWorktree = {
+  worktree: Worktree;
+  index: number;
+};
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -27,20 +32,37 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
     rows: stdout.rows ?? 24,
   });
   const [worktrees, setWorktrees] = useState<Worktree[]>([]);
+  const [queue, setQueue] = useState<QueuedWorktree[]>([]);
+  const [tab, setTab] = useState<"worktrees" | "queue">("worktrees");
+  const [confirmQuit, setConfirmQuit] = useState(false);
   const [selected, setSelected] = useState(0);
+  const [queueSelected, setQueueSelected] = useState(0);
   const [notice, setNotice] = useState<Notice>({
     kind: "info",
     text: "Loading worktrees…",
   });
-  const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
   const lastClick = useRef({ path: "", time: 0 });
+  const processing = useRef(false);
+  const queuedPaths = useRef(new Set<string>());
+  const activeDeletion = useRef<AbortController | null>(null);
+  const quitting = useRef(false);
+  const worktreesTabRef = useRef<DOMElement>(null);
+  const queueTabRef = useRef<DOMElement>(null);
+  useOnClick(worktreesTabRef, () => setTab("worktrees"));
+  useOnClick(queueTabRef, () => {
+    setTab("queue");
+    setMenu(null);
+  });
 
   const refresh = useCallback(async () => {
     const nextWorktrees = await loadWorktrees();
-    setWorktrees(nextWorktrees);
+    const available = nextWorktrees.filter(
+      (worktree) => !queuedPaths.current.has(worktree.path),
+    );
+    setWorktrees(available);
     setSelected((current) =>
-      Math.min(current, Math.max(0, nextWorktrees.length - 1)),
+      Math.min(current, Math.max(0, available.length - 1)),
     );
     setNotice((current) =>
       current.text === "Loading worktrees…"
@@ -67,7 +89,48 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
     };
   }, [stdout]);
 
+  useEffect(() => {
+    const next = queue[0];
+    if (!next || processing.current) {
+      return;
+    }
+
+    processing.current = true;
+    const controller = new AbortController();
+    activeDeletion.current = controller;
+    void deleteWorktree(next.worktree.path, controller.signal)
+      .then(() => {
+        if (!quitting.current) {
+          setNotice({ kind: "success", text: `Deleted ${next.worktree.path}` });
+        }
+      })
+      .catch((error: unknown) => {
+        if (quitting.current) {
+          return;
+        }
+        setWorktrees((current) => {
+          const restored = [...current];
+          restored.splice(Math.min(next.index, restored.length), 0, next.worktree);
+          return restored;
+        });
+        setNotice({ kind: "error", text: errorMessage(error) });
+      })
+      .finally(() => {
+        activeDeletion.current = null;
+        queuedPaths.current.delete(next.worktree.path);
+        processing.current = false;
+        if (!quitting.current) {
+          setQueue((current) => current.filter((item) => item !== next));
+          setQueueSelected((current) => Math.max(0, current - 1));
+        }
+      });
+  }, [queue]);
+
   const viewportRows = Math.max(3, dimensions.rows - 7);
+  const queueStart = Math.min(
+    Math.max(0, queueSelected - Math.floor(viewportRows / 2)),
+    Math.max(0, queue.length - viewportRows),
+  );
   const selectedWorktree = worktrees[selected];
 
   const moveSelection = useCallback(
@@ -91,9 +154,9 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
     }
   }, [exit, onNavigate, selected, worktrees]);
 
-  const removeSelected = useCallback(async () => {
+  const removeSelected = useCallback(() => {
     const worktree = worktrees[selected];
-    if (!worktree || busy) {
+    if (!worktree || queuedPaths.current.has(worktree.path)) {
       return;
     }
     if (!worktree.removable) {
@@ -102,18 +165,21 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
       return;
     }
 
-    setBusy(true);
     setMenu(null);
-    try {
-      await deleteWorktree(worktree.path);
-      setNotice({ kind: "success", text: `Deleted ${worktree.path}` });
-      await refresh();
-    } catch (error: unknown) {
-      setNotice({ kind: "error", text: errorMessage(error) });
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, refresh, selected, worktrees]);
+    queuedPaths.current.add(worktree.path);
+    setWorktrees((current) => current.filter((item) => item.path !== worktree.path));
+    setSelected((current) => Math.min(current, Math.max(0, worktrees.length - 2)));
+    setQueue((current) => [...current, { worktree, index: selected }]);
+    setNotice({ kind: "info", text: `Queued ${worktree.path} for deletion` });
+  }, [selected, worktrees]);
+
+  const quit = useCallback(() => {
+    quitting.current = true;
+    activeDeletion.current?.abort();
+    queuedPaths.current.clear();
+    setQueue([]);
+    exit();
+  }, [exit]);
 
   const handleClick = useCallback(
     (index: number) => {
@@ -153,8 +219,21 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
 
   useInput((input, key) => {
     const normalized = input.toLowerCase();
+    if (confirmQuit) {
+      if (normalized === "y") {
+        quit();
+      } else if (normalized === "n" || key.escape) {
+        setConfirmQuit(false);
+      }
+      return;
+    }
     if (normalized === "q" || (key.ctrl && normalized === "c")) {
-      exit();
+      if (queue.length > 0) {
+        setConfirmQuit(true);
+        setMenu(null);
+      } else {
+        quit();
+      }
       return;
     }
     if (key.escape) {
@@ -164,6 +243,21 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
     if (menu) {
       if (key.return) {
         void removeSelected();
+      }
+      return;
+    }
+    if (key.tab) {
+      setTab((current) => current === "worktrees" ? "queue" : "worktrees");
+      return;
+    }
+    if (tab === "queue") {
+      if (key.upArrow || key.downArrow) {
+        setQueueSelected((current) =>
+          Math.min(
+            Math.max(0, current + (key.upArrow ? -1 : 1)),
+            Math.max(0, queue.length - 1),
+          ),
+        );
       }
       return;
     }
@@ -208,22 +302,67 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
         <Text bold color="cyan">
           Worktree Manager
         </Text>
-        <Text dimColor>{busy ? "Working…" : "q quit"}</Text>
+        <Text dimColor>
+          {queue.length > 0 ? `${queue.length} queued · q quit` : "q quit"}
+        </Text>
       </Box>
 
-      <WorktreeTable
-        worktrees={worktrees}
-        selected={selected}
-        viewportRows={viewportRows}
-        onClick={handleClick}
-        onContextMenu={openContextMenu}
-        onMove={moveSelection}
-      />
+      <Box gap={2} marginBottom={1}>
+        <Box ref={worktreesTabRef}>
+          <Text color={tab === "worktrees" ? "cyan" : "gray"} bold={tab === "worktrees"}>
+            Worktrees
+          </Text>
+        </Box>
+        <Box ref={queueTabRef}>
+          <Text color={tab === "queue" ? "cyan" : "gray"} bold={tab === "queue"}>
+            Queue ({queue.length})
+          </Text>
+        </Box>
+      </Box>
+
+      {tab === "worktrees" ? (
+        <WorktreeTable
+          worktrees={worktrees}
+          selected={selected}
+          viewportRows={viewportRows - 1}
+          onClick={handleClick}
+          onContextMenu={openContextMenu}
+          onMove={moveSelection}
+        />
+      ) : (
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor="gray"
+          paddingX={1}
+          height={viewportRows + 2}
+          overflow="hidden"
+        >
+          {queue.length === 0 ? <Text dimColor>Nothing queued for deletion</Text> : null}
+          {queue.slice(queueStart, queueStart + viewportRows).map((item) => (
+            <Box key={item.worktree.path} backgroundColor={queue[queueSelected] === item ? "blue" : undefined}>
+              <Text wrap="truncate-end">
+                {queue[0] === item ? "Deleting" : "Waiting"} · {item.worktree.path}
+              </Text>
+            </Box>
+          ))}
+        </Box>
+      )}
 
       <Box justifyContent="space-between">
         <Text color={noticeColor}>{notice.text}</Text>
-        <Text dimColor>↑/↓ select · enter open · d delete</Text>
+        <Text dimColor>
+          {tab === "worktrees"
+            ? "tab switch · ↑/↓ select · enter open · d delete"
+            : "tab switch · ↑/↓ scroll"}
+        </Text>
       </Box>
+
+      {confirmQuit ? (
+        <Box borderStyle="round" borderColor="yellow" paddingX={1} position="absolute" top={Math.max(0, Math.floor(dimensions.rows / 2) - 1)} left={2} backgroundColor="black">
+          <Text color="yellow">{queue.length} worktree(s) queued. Quit and discard pending deletions? (y/n)</Text>
+        </Box>
+      ) : null}
 
       {menu ? (
         <Box
@@ -239,7 +378,7 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
           aria-role="menu"
         >
           <DeleteOption
-            disabled={busy || !selectedWorktree?.removable}
+            disabled={!selectedWorktree?.removable}
             onChoose={() => void removeSelected()}
           />
         </Box>
