@@ -82,6 +82,15 @@ export async function loadWorktrees(): Promise<Worktree[]> {
   return parseWorktrees(await git(["worktree", "list", "--porcelain", "-z"]));
 }
 
-export async function deleteWorktree(path: string, signal?: AbortSignal): Promise<void> {
-  await git(["worktree", "remove", path], process.cwd(), signal);
+export async function deleteWorktree(
+  path: string,
+  signal?: AbortSignal,
+  force = false,
+): Promise<void> {
+  const args = ["worktree", "remove"];
+  if (force) {
+    args.push("--force");
+  }
+  args.push(path);
+  await git(args, process.cwd(), signal);
 }

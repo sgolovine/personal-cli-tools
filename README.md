@@ -26,6 +26,6 @@ A child process cannot change its parent shell's directory. Add this line to you
 eval "$(worktree-manager --init)"
 ```
 
-Restart the shell, then run `worktree-manager` from anywhere inside a Git worktree. Use the arrow keys or mouse wheel to select a worktree, Enter or a double click to open it, `d` or the right-click menu to delete it, and `q` to quit.
+Restart the shell, then run `worktree-manager` from anywhere inside a Git worktree. Use the arrow keys or mouse wheel to select a worktree, Enter or a double click to open it, `d` or the right-click menu to delete it, Shift+D to force deletion with `git worktree remove --force`, and `q` to quit. Ordinary deletion preserves worktrees with uncommitted changes; force deletion discards those changes.
 
 This is personal software, as such I will not accept feature requests, bug reports or PR's.

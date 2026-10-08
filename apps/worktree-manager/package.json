@@ -18,7 +18,8 @@
   "scripts": {
     "build": "tsc && esbuild dist/cli.js --bundle --platform=node --format=esm --target=node22 --alias:react-devtools-core=./dist/react-devtools-core.js --banner:js='import { createRequire } from \"node:module\"; const require = createRequire(import.meta.url);' --outfile=dist/cli-bundle.js",
     "package": "pnpm build && pkg . --target host --output release/worktree-manager",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm build && node --test test/*.test.mjs"
   },
   "engines": {
     "node": ">=22"

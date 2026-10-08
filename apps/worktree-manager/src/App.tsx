@@ -18,6 +18,7 @@ type ContextMenuState = {
 type QueuedWorktree = {
   worktree: Worktree;
   index: number;
+  force: boolean;
 };
 
 function errorMessage(error: unknown): string {
@@ -98,7 +99,7 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
     processing.current = true;
     const controller = new AbortController();
     activeDeletion.current = controller;
-    void deleteWorktree(next.worktree.path, controller.signal)
+    void deleteWorktree(next.worktree.path, controller.signal, next.force)
       .then(() => {
         if (!quitting.current) {
           setNotice({ kind: "success", text: `Deleted ${next.worktree.path}` });
@@ -154,24 +155,27 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
     }
   }, [exit, onNavigate, selected, worktrees]);
 
-  const removeSelected = useCallback(() => {
-    const worktree = worktrees[selected];
-    if (!worktree || queuedPaths.current.has(worktree.path)) {
-      return;
-    }
-    if (!worktree.removable) {
-      setNotice({ kind: "error", text: "Bare worktrees cannot be removed" });
-      setMenu(null);
-      return;
-    }
+  const removeSelected = useCallback(
+    (force = false) => {
+      const worktree = worktrees[selected];
+      if (!worktree || queuedPaths.current.has(worktree.path)) {
+        return;
+      }
+      if (!worktree.removable) {
+        setNotice({ kind: "error", text: "Bare worktrees cannot be removed" });
+        setMenu(null);
+        return;
+      }
 
-    setMenu(null);
-    queuedPaths.current.add(worktree.path);
-    setWorktrees((current) => current.filter((item) => item.path !== worktree.path));
-    setSelected((current) => Math.min(current, Math.max(0, worktrees.length - 2)));
-    setQueue((current) => [...current, { worktree, index: selected }]);
-    setNotice({ kind: "info", text: `Queued ${worktree.path} for deletion` });
-  }, [selected, worktrees]);
+      setMenu(null);
+      queuedPaths.current.add(worktree.path);
+      setWorktrees((current) => current.filter((item) => item.path !== worktree.path));
+      setSelected((current) => Math.min(current, Math.max(0, worktrees.length - 2)));
+      setQueue((current) => [...current, { worktree, index: selected, force }]);
+      setNotice({ kind: "info", text: `Queued ${worktree.path} for deletion` });
+    },
+    [selected, worktrees],
+  );
 
   const quit = useCallback(() => {
     quitting.current = true;
@@ -268,7 +272,7 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
     } else if (key.return) {
       navigate();
     } else if (normalized === "d") {
-      void removeSelected();
+      void removeSelected(key.shift || input === "D");
     }
   });
 
@@ -353,7 +357,7 @@ export function App({ onNavigate }: { onNavigate: (path: string) => void }) {
         <Text color={noticeColor}>{notice.text}</Text>
         <Text dimColor>
           {tab === "worktrees"
-            ? "←/→ tabs · ↑/↓ select · enter open · d delete"
+            ? "←/→ tabs · ↑/↓ select · enter open · d delete · shift+d force delete"
             : "←/→ tabs · ↑/↓ scroll"}
         </Text>
       </Box>
